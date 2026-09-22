@@ -1,5 +1,14 @@
 package com.teraha.products.repository;
 
-import com.teraha.entities.Product;
+import java.util.Optional;
 
-public interface ProductRepository extends BaseRepository<Product> { }
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
+
+import com.teraha.commons.entities.Product;
+
+public interface ProductRepository extends BaseRepository<Product> {
+	Optional<Product> findByIdAndActiveTrue(Long id);
+	Page<Product> findAllByActiveTrue(Pageable page);
+	boolean existsByCode(String code);
+}
