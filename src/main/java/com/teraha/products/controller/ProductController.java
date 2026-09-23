@@ -31,7 +31,12 @@ public class ProductController {
 	private final ProductService productService;
 
 	@GetMapping
-	public Page<ProductDTO> getProducts(@RequestParam(name="page", defaultValue="0") int page){
+	public Page<ProductDTO> getProducts(
+			@RequestParam(name="page", defaultValue="0") int page,
+			@RequestParam(name="search", required=false) String search){
+		if(search != null && !search.isBlank()){
+			return productService.searchProducts(search, page); 
+		}
 		return productService.listProducts(page);
 	}
 

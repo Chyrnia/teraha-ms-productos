@@ -145,6 +145,13 @@ public class ProductService {
 		return productMapper.toDto(product);
 	}
 
+	@Transactional(readOnly=true)
+	public Page<ProductDTO> searchProducts(String query, int page){
+		Pageable pageReq = PageRequest.of(page, pageConfigs.getPageSize());
+		return productRepository.searchActiveProducts(query, pageReq)
+			.map(productMapper::toDto);
+	}
+
 	private void validateInventoryUpdate(InventoryUpdate dto, Product product){
 
 		if(dto.getStockDelta() == null || dto.getStockDelta() == 0){
