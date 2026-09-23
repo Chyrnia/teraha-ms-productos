@@ -1,8 +1,7 @@
 package com.teraha.products.controller;
 
-import java.util.Optional;
-
 import com.teraha.commons.dtos.ProductDTO;
+import com.teraha.commons.dtos.InventoryUpdate;
 import com.teraha.products.service.ProductService;
 
 import org.springframework.web.bind.annotation.RestController;
@@ -14,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.http.HttpStatus;
@@ -30,6 +30,11 @@ public class ProductController {
 
 	private final ProductService productService;
 
+	@GetMapping
+	public Page<ProductDTO> getProducts(@RequestParam(name="page", defaultValue="0") int page){
+		return productService.listProducts(page);
+	}
+
 	@GetMapping("/{id}")
 	public ResponseEntity<ProductDTO> findProductById(@PathVariable("id") Long id){
 		ProductDTO product = productService.findProductById(id);
@@ -42,33 +47,28 @@ public class ProductController {
 		 return productService.createProduct(dto);
 	}
 
-	@GetMapping
-	public Page<ProductDTO> getProducts(@RequestParam(name="page", defaultValue="0") int page){
-		return productService.listProducts(page);
+	@PutMapping(path="/{id}", consumes="application/json")
+	public ResponseEntity<ProductDTO> putProduct(@PathVariable("id") Long id, @RequestBody ProductDTO dto){
+		ProductDTO product = productService.updateProduct(id, dto);
+		return ResponseEntity.ok(product);
 	}
 
-	@PutMapping(path="/{id}", consumes="application/json")
-	public ResponseEntity<ProductDTO> putProduct(
-			@PathVariable("id") Long id,
-			@RequestBody ProductDTO dto)
-	{
-		Optional<ProductDTO> product = productService.updateProduct(id, dto);
-
-		if(product.isPresent()){
-			return ResponseEntity.ok(product.get());
-		}
-
-		return ResponseEntity.notFound().build();
+	@PatchMapping(path="/{id}", consumes="application/json")
+	public ResponseEntity<ProductDTO> patchProduct(@PathVariable("id") Long id, @RequestBody ProductDTO dto){
+		ProductDTO product = productService.updateOneFieldOfProduct(id, dto);
+		return ResponseEntity.ok(product);
 	}
 
 	@DeleteMapping(path="/{id}")
 	public ResponseEntity<Void> deleteProduct(@PathVariable("id") Long id){
-		boolean deleted = productService.deactivateProduct(id);
+		productService.deactivateProduct(id);
+		return ResponseEntity.noContent().build();
+	}
 
-		if (deleted) {
-			return ResponseEntity.noContent().build();
-		}
-		return ResponseEntity.notFound().build();
+	@PatchMapping(path="/{id}/inventory", consumes="application/json")
+	public ResponseEntity<ProductDTO> patchProductInventory(@PathVariable("id") Long id, @RequestBody InventoryUpdate dto){
+		ProductDTO product = productService.updateProductInventory(id, dto);
+		return ResponseEntity.ok(product);
 	}
 
 }

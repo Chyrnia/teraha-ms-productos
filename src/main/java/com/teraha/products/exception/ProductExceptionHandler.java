@@ -34,6 +34,15 @@ public class ProductExceptionHandler {
 		return new ResponseEntity<>(error, HttpStatus.CONFLICT);
 	}
 
+	@ExceptionHandler(ProductBadRequestException.class)
+	public ResponseEntity<ErrorResponse> handleBadRequest(ProductBadRequestException exception){
+		ErrorResponse error = new ErrorResponse()
+			.status(HttpStatus.BAD_REQUEST.value())
+			.message(exception.getMessage())
+			.timestamp(OffsetDateTime.now());
+		return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericError(Exception exception){
 

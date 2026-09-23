@@ -11,4 +11,5 @@ public interface ProductRepository extends BaseRepository<Product> {
 	Optional<Product> findByIdAndActiveTrue(Long id);
 	Page<Product> findAllByActiveTrue(Pageable page);
 	boolean existsByCode(String code);
+	boolean existsByCodeAndIdNot(String code, Long id);
 }
