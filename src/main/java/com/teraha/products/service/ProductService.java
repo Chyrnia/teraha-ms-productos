@@ -195,8 +195,8 @@ public class ProductService {
 		if (dto.getDescription() != null)  count++;
 		if (dto.getPrice() != null)  count++;
 		if (dto.getMargin() != null)  count++;
-		if (!dto.getCategoryIds().isEmpty()) count++;
-		if (!dto.getSupplierIds().isEmpty()) count++;
+		if (dto.getCategoryIds() != null) count++;
+		if (dto.getSupplierIds() != null) count++;
 
 		return count == 1;
 	}
@@ -208,8 +208,8 @@ public class ProductService {
 			&& dto.getPrice() == null
 			&& dto.getCost() == null
 			&& dto.getMargin() == null
-			&& dto.getCategoryIds().isEmpty() 
-			&& dto.getSupplierIds().isEmpty();
+			&& dto.getCategoryIds() == null
+			&& dto.getSupplierIds() == null;
 	}
 
 	private boolean hasAtLeastOneProductUpdateAttribute(ProductDTO dto){
@@ -217,8 +217,8 @@ public class ProductService {
 			|| dto.getDescription() != null
 			|| dto.getPrice() != null
 			|| dto.getMargin() != null
-			|| !dto.getCategoryIds().isEmpty() 
-			|| !dto.getSupplierIds().isEmpty();
+			|| dto.getCategoryIds() != null
+			|| dto.getSupplierIds() != null;
 	}
 
 	private void validateProductUpdateInfo(Long id, ProductDTO dto){
