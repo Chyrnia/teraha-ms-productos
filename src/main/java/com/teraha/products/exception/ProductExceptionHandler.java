@@ -43,6 +43,24 @@ public class ProductExceptionHandler {
 		return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
 	}
 
+	@ExceptionHandler(SupplierNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleSupplierNotFound(SupplierNotFoundException exception){
+		ErrorResponse error = new ErrorResponse()
+			.status(HttpStatus.NOT_FOUND.value())
+			.message(exception.getMessage())
+			.timestamp(OffsetDateTime.now());
+		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND); 
+	}
+
+	@ExceptionHandler(CategoryNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleCategoryNotFound(CategoryNotFoundException exception){
+		ErrorResponse error = new ErrorResponse()
+			.status(HttpStatus.NOT_FOUND.value())
+			.message(exception.getMessage())
+			.timestamp(OffsetDateTime.now());
+		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND); 
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericError(Exception exception){
 
