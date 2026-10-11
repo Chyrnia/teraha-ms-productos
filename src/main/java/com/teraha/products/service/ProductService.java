@@ -1,5 +1,6 @@
 package com.teraha.products.service;
 
+import java.util.List;
 import java.util.Optional;
 import java.math.BigDecimal;
 
@@ -10,15 +11,21 @@ import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.teraha.commons.entities.Product;
+import com.teraha.commons.entities.Category;
+import com.teraha.commons.entities.Supplier;
 import com.teraha.commons.dtos.ProductDTO;
 import com.teraha.commons.dtos.InventoryUpdate;
 
 import com.teraha.products.repository.ProductRepository;
+import com.teraha.products.repository.CategoryRepository;
+import com.teraha.products.repository.SupplierRepository;
 import com.teraha.products.mapper.ProductMapper;
 import com.teraha.products.configs.PagingConfigs;
 import com.teraha.products.exception.ProductNotFoundException;
 import com.teraha.products.exception.ProductConflictException;
 import com.teraha.products.exception.ProductBadRequestException;
+import com.teraha.products.exception.CategoryNotFoundException;
+import com.teraha.products.exception.SupplierNotFoundException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +38,8 @@ public class ProductService {
 
 	private final PagingConfigs pageConfigs;
 	private final ProductRepository productRepository;
+	private final CategoryRepository categoryRepository;
+	private final SupplierRepository supplierRepository;
 	private final ProductMapper productMapper;
 
 	public ProductDTO createProduct(ProductDTO dto){
@@ -40,6 +49,9 @@ public class ProductService {
 		log.info("Creating product with code {}", dto.getCode());
 
 		Product product = productMapper.toEntity(dto);
+
+		addSuppliers(product, dto.getSupplierIds());
+		addCategories(product, dto.getCategoryIds());
 
 		//Set creation defaults
 		product.setActive(true); 
@@ -67,6 +79,8 @@ public class ProductService {
 				//check if the code supplied isn't already used in some other product
 				checkCodeConflict(id, dto);
 				productMapper.updateEntity(dto, product);
+				if(dto.getSupplierIds() != null) replaceSuppliers(product, dto.getSupplierIds());
+				if(dto.getCategoryIds() != null) replaceCategories(product, dto.getCategoryIds());
 				return productMapper.toDto(productRepository.save(product));
 			})
 			.orElseThrow(() -> new ProductNotFoundException(id));
@@ -181,8 +195,8 @@ public class ProductService {
 		if (dto.getDescription() != null)  count++;
 		if (dto.getPrice() != null)  count++;
 		if (dto.getMargin() != null)  count++;
-		if (!dto.getCategories().isEmpty()) count++;
-		if (!dto.getSuppliers().isEmpty()) count++;
+		if (!dto.getCategoryIds().isEmpty()) count++;
+		if (!dto.getSupplierIds().isEmpty()) count++;
 
 		return count == 1;
 	}
@@ -194,8 +208,8 @@ public class ProductService {
 			&& dto.getPrice() == null
 			&& dto.getCost() == null
 			&& dto.getMargin() == null
-			&& dto.getCategories().isEmpty() 
-			&& dto.getSuppliers().isEmpty();
+			&& dto.getCategoryIds().isEmpty() 
+			&& dto.getSupplierIds().isEmpty();
 	}
 
 	private boolean hasAtLeastOneProductUpdateAttribute(ProductDTO dto){
@@ -203,8 +217,8 @@ public class ProductService {
 			|| dto.getDescription() != null
 			|| dto.getPrice() != null
 			|| dto.getMargin() != null
-			|| !dto.getCategories().isEmpty() 
-			|| !dto.getSuppliers().isEmpty();
+			|| !dto.getCategoryIds().isEmpty() 
+			|| !dto.getSupplierIds().isEmpty();
 	}
 
 	private void validateProductUpdateInfo(Long id, ProductDTO dto){
@@ -271,6 +285,44 @@ public class ProductService {
 		if(exists){
 			throw new ProductConflictException(dto.getCode());
 		}
+	}
+
+	private void addSuppliers(Product product, List<Long> supplierIds){
+		if(supplierIds != null && !supplierIds.isEmpty()){
+			//for each id on the list
+			supplierIds.forEach((supplierId) -> {
+				//fetch the supplier from the database
+				Supplier supplier = supplierRepository.findByIdAndActiveTrue(supplierId)
+					//throw supplier not found exception if Option<empty>
+					.orElseThrow(() -> new SupplierNotFoundException(supplierId));
+			//add supplier to suppliers
+			product.getSuppliers().add(supplier);
+			});
+		}
+	}
+
+	private void addCategories(Product product, List<Long> categoryIds){
+		if(categoryIds != null && !categoryIds.isEmpty()){
+			//for each id on the list
+			categoryIds.forEach((categoryId) -> {
+				//fetch the category from the database
+				Category category = categoryRepository.findById(categoryId)
+					//throw category not found exception if Option<empty>
+					.orElseThrow(() -> new CategoryNotFoundException(categoryId));
+			//add category to categories
+			product.getCategories().add(category);
+			});
+		}
+	}
+
+	private void replaceSuppliers(Product product, List<Long> supplierIds){
+		product.getSuppliers().clear();
+		addSuppliers(product, supplierIds);
+	}
+
+	private void replaceCategories(Product product, List<Long> categoryIds){
+		product.getCategories().clear();
+		addCategories(product, categoryIds);
 	}
 
 }
