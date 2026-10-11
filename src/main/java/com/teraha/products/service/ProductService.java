@@ -115,6 +115,8 @@ public class ProductService {
 				//check if the code supplied isn't already used in some other product
 				checkCodeConflict(id, dto);
 				productMapper.updateEntity(dto, product);
+				if(dto.getSupplierIds() != null) replaceSuppliers(product, dto.getSupplierIds());
+				if(dto.getCategoryIds() != null) replaceCategories(product, dto.getCategoryIds());
 				return productMapper.toDto(productRepository.save(product));
 			})
 			.orElseThrow(() -> new ProductNotFoundException(id));
