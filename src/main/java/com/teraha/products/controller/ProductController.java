@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.data.domain.Page;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class ProductController {
 	@ApiResponses({
 		@ApiResponse(responseCode="200", description="Products page with matching products") 
 		})
+	@PreAuthorize("hasAnyRole('SELLER','MANAGER','SYSADMIN'")
 	@GetMapping
 	public Page<ProductDTO> getProducts(@RequestParam(name="page", defaultValue="0") int page, 
 			@RequestParam(name="search", required=false) String search){
@@ -59,6 +61,7 @@ public class ProductController {
 		@ApiResponse(responseCode="200", description="Product found"),
 		@ApiResponse(responseCode="404", description="Product not found")
 		})
+	@PreAuthorize("hasAnyRole('SELLER','MANAGER','SYSADMIN'")
 	@GetMapping("/{id}")
 	public ResponseEntity<ProductDTO> findProductById(@PathVariable("id") Long id){
 
@@ -74,6 +77,7 @@ public class ProductController {
 		@ApiResponse(responseCode="400", description="Malformed request"),
 		@ApiResponse(responseCode="409", description="Product code already in use")
 		})
+	@PreAuthorize("hasAnyRole('SELLER','MANAGER','SYSADMIN'")
 	@PostMapping(consumes = "application/json")
 	@ResponseStatus(HttpStatus.CREATED)
 	public ProductDTO postProduct(@RequestBody ProductDTO dto){
@@ -90,6 +94,7 @@ public class ProductController {
 		@ApiResponse(responseCode="404", description="Product id not found"),
 		@ApiResponse(responseCode="409", description="Product code already in use")
 		})
+	@PreAuthorize("hasRole('SYSADMIN')")
 	@PutMapping(path="/{id}", consumes="application/json")
 	public ResponseEntity<ProductDTO> putProduct(@PathVariable("id") Long id, @RequestBody ProductDTO dto){
 
@@ -106,6 +111,7 @@ public class ProductController {
 		@ApiResponse(responseCode="404", description="Product id not found"),
 		@ApiResponse(responseCode="409", description="Product code already in use")
 		})
+	@PreAuthorize("hasRole('SYSADMIN')")
 	@PatchMapping(path="/{id}", consumes="application/json")
 	public ResponseEntity<ProductDTO> patchProduct(@PathVariable("id") Long id, @RequestBody ProductDTO dto){
 
@@ -120,6 +126,7 @@ public class ProductController {
 		@ApiResponse(responseCode="204", description="Product deactivated"),
 		@ApiResponse(responseCode="404", description="Product id not found")
 		})
+	@PreAuthorize("hasRole('SYSADMIN')")
 	@DeleteMapping(path="/{id}")
 	public ResponseEntity<Void> deleteProduct(@PathVariable("id") Long id){
 
@@ -135,6 +142,7 @@ public class ProductController {
 		@ApiResponse(responseCode="400", description="Malformed request"),
 		@ApiResponse(responseCode="404", description="Product id not found")
 		})
+	@PreAuthorize("hasAnyRole('SELLER','MANAGER','SYSADMIN'")
 	@PatchMapping(path="/{id}/inventory", consumes="application/json")
 	public ResponseEntity<ProductDTO> patchProductInventory(@PathVariable("id") Long id, @RequestBody InventoryUpdate dto){
 
