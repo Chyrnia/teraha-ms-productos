@@ -1,4 +1,4 @@
-package com.teraha.security.configs;
+package com.teraha.products.configs;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
