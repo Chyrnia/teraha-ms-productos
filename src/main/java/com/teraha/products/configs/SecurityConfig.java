@@ -22,6 +22,12 @@ public class SecurityConfig {
 			.sessionManagement(session ->
 					session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth
+					.requestMatchers(
+						"/v3/api-docs/**",
+						"/v3/api-docs.yaml",
+						"/swagger-ui.html",
+						"/swagger-ui/**"
+						).permitAll()
 					.requestMatchers(HttpMethod.GET, "/products", "/products/**")
 					.hasAnyRole("SELLER", "MANAGER", "SYSADMIN")
 					.requestMatchers(HttpMethod.POST, "/products")
@@ -38,8 +44,8 @@ public class SecurityConfig {
 						HttpMethod.DELETE, "/products/*")
 					.hasRole("SYSADMIN")
 					.anyRequest().authenticated())
-			.oauth2ResourceServer(oauth2 ->
-					oauth2.jwt(Customizer.withDefaults()))
-			.build();
+					.oauth2ResourceServer(oauth2 ->
+							oauth2.jwt(Customizer.withDefaults()))
+					.build();
 	}
 }
