@@ -9,6 +9,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.CacheEvict;
 
 import com.teraha.commons.entities.Product;
 import com.teraha.commons.entities.Category;
@@ -42,6 +45,7 @@ public class ProductService {
 	private final SupplierRepository supplierRepository;
 	private final ProductMapper productMapper;
 
+	@CachePut(cacheNames="products:products", key="#result.id")
 	public ProductDTO createProduct(ProductDTO dto){
 
 		validateProductCreationInfo(dto);
@@ -63,12 +67,14 @@ public class ProductService {
 	}
 
 	@Transactional(readOnly=true)
+	@Cacheable(cacheNames="products:products", key="#id")
 	public ProductDTO findProductById(Long id){
 		return productRepository.findByIdAndActiveTrue(id)
 			.map(productMapper::toDto)
 			.orElseThrow(() -> new ProductNotFoundException(id));
 	}
 
+	@CachePut(cacheNames="products:products", key="#id")
 	public ProductDTO updateProduct(Long id, ProductDTO dto){
 
 		validateProductUpdateInfo(id, dto);
@@ -86,6 +92,7 @@ public class ProductService {
 			.orElseThrow(() -> new ProductNotFoundException(id));
 	}
 
+	@CachePut(cacheNames="products:products", key="#id")
 	public ProductDTO updateOneFieldOfProduct(Long id, ProductDTO dto){
 
 		if(dto.getActive() != null){
@@ -122,6 +129,7 @@ public class ProductService {
 			.orElseThrow(() -> new ProductNotFoundException(id));
 	}
 
+	@CacheEvict(cacheNames="products:produts", key="#id")
 	public void deactivateProduct(Long id){
 		Product product = productRepository.findByIdAndActiveTrue(id)
 			.orElseThrow(() -> new ProductNotFoundException(id));
@@ -138,6 +146,7 @@ public class ProductService {
 			.map(productMapper::toDto);
 	}
 
+	@CachePut(cacheNames="products:products", key="#id")
 	public ProductDTO updateProductInventory(Long id, InventoryUpdate dto){
 
 		Product product = productRepository.findByIdAndActiveTrue(id)
