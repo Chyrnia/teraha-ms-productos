@@ -28,11 +28,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 @Tag(name = "Products", description="Product management endpoints")
 @Slf4j
 @RestController
 @RequestMapping(path="/products", produces="application/json")
+@SecurityRequirement(name = "bearerAuth")
 @CrossOrigin
 @RequiredArgsConstructor
 public class ProductController {
