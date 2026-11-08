@@ -61,6 +61,15 @@ public class ProductExceptionHandler {
 		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND); 
 	}
 
+	@ExceptionHandler(CategoryConflictException.class)
+	public ResponseEntity<ErrorResponse> handleCategoryConflict(CategoryConflictException exception){
+		ErrorResponse error = new ErrorResponse()
+			.status(HttpStatus.CONFLICT.value())
+			.message(exception.getMessage())
+			.timestamp(OffsetDateTime.now());
+		return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericError(Exception exception){
 

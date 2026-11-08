@@ -1,4 +1,3 @@
-
 package com.teraha.products.configs;
 
 import java.time.Duration;
@@ -16,6 +15,7 @@ import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 
 import com.teraha.commons.dtos.ProductDTO;
+import com.teraha.commons.dtos.CategoryDTO;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -28,29 +28,38 @@ public class CacheConfig {
             RedisConnectionFactory connectionFactory,
             ObjectMapper objectMapper,
             @Value("${app.cache.ttl.default-seconds}") long defaultTtl,
-            @Value("${app.cache.ttl.products-seconds}") long productsTtl) {
+            @Value("${app.cache.ttl.products-seconds}") long productsTtl,
+            @Value("${app.cache.ttl.categories-seconds}") long categoriesTtl) {
 
         RedisCacheConfiguration defaults =
             RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofSeconds(defaultTtl))
-                .disableCachingNullValues()
+                .disableCachingNullValues();
+
+        RedisCacheConfiguration productsCache =
+            defaults
+                .entryTtl(Duration.ofSeconds(productsTtl))
                 .serializeValuesWith(
                     SerializationPair.fromSerializer(
                         new JacksonJsonRedisSerializer<>(
                             objectMapper, ProductDTO.class)));
 
-        RedisCacheConfiguration productsCache =
-            defaults.entryTtl(Duration.ofSeconds(productsTtl));
+        RedisCacheConfiguration categoriesCache =
+            defaults
+                .entryTtl(Duration.ofSeconds(categoriesTtl))
+                .serializeValuesWith(
+                    SerializationPair.fromSerializer(
+                        new JacksonJsonRedisSerializer<>(
+                            objectMapper, CategoryDTO.class)));
 
-        RedisCacheManager redisManager =
-            RedisCacheManager.builder(connectionFactory)
-                .cacheDefaults(defaults)
-                .withInitialCacheConfigurations(
-                    Map.of("products:products", productsCache))
-                .transactionAware()
-                .build();
-
-        return redisManager;
+        return RedisCacheManager.builder(connectionFactory)
+            .cacheDefaults(defaults)
+            .withInitialCacheConfigurations(
+                Map.of(
+                    "products:products", productsCache,
+                    "products:categories", categoriesCache
+                ))
+            .transactionAware()
+            .build();
     }
 }
-

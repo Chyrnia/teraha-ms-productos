@@ -43,6 +43,10 @@ public class SecurityConfig {
 					.requestMatchers(
 						HttpMethod.DELETE, "/products/*")
 					.hasRole("SYSADMIN")
+					.requestMatchers(HttpMethod.GET, "/categories", "/categories/**")
+					.hasAnyRole("SELLER", "MANAGER", "SYSADMIN")
+					.requestMatchers(HttpMethod.POST, "/categories")
+					.hasAnyRole("SELLER", "MANAGER", "SYSADMIN")
 					.anyRequest().authenticated())
 					.oauth2ResourceServer(oauth2 ->
 							oauth2.jwt(Customizer.withDefaults()))
