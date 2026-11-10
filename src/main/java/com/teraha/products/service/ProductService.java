@@ -1,6 +1,12 @@
+
 package com.teraha.products.service;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Optional;
 import java.math.BigDecimal;
 
@@ -18,6 +24,7 @@ import com.teraha.commons.entities.Category;
 import com.teraha.commons.entities.Supplier;
 import com.teraha.commons.dtos.ProductDTO;
 import com.teraha.commons.dtos.InventoryUpdate;
+import com.teraha.commons.dtos.InventoryUpdateLine;
 
 import com.teraha.products.repository.ProductRepository;
 import com.teraha.products.repository.CategoryRepository;
@@ -39,301 +46,453 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class ProductService {
 
-	private final PagingConfigs pageConfigs;
-	private final ProductRepository productRepository;
-	private final CategoryRepository categoryRepository;
-	private final SupplierRepository supplierRepository;
-	private final ProductMapper productMapper;
+    private final PagingConfigs pageConfigs;
+    private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
+    private final SupplierRepository supplierRepository;
+    private final ProductMapper productMapper;
 
-	@CachePut(cacheNames="products:products", key="#result.id")
-	public ProductDTO createProduct(ProductDTO dto){
+    @CachePut(cacheNames = "products:products", key = "#result.id")
+    public ProductDTO createProduct(ProductDTO dto) {
 
-		validateProductCreationInfo(dto);
+        validateProductCreationInfo(dto);
 
-		log.info("Creating product with code {}", dto.getCode());
+        log.info("Creating product with code {}", dto.getCode());
 
-		Product product = productMapper.toEntity(dto);
+        Product product = productMapper.toEntity(dto);
 
-		addSuppliers(product, dto.getSupplierIds());
-		addCategories(product, dto.getCategoryIds());
+        addSuppliers(product, dto.getSupplierIds());
+        addCategories(product, dto.getCategoryIds());
 
-		//Set creation defaults
-		product.setActive(true); 
-		product.setStock(0);
-		product.setCost(BigDecimal.ZERO);
+        // Set creation defaults
+        product.setActive(true);
+        product.setStock(0);
+        product.setCost(BigDecimal.ZERO);
 
-		Product saved = productRepository.save(product);
-		return productMapper.toDto(saved);
-	}
+        Product saved = productRepository.save(product);
+        return productMapper.toDto(saved);
+    }
 
-	@Transactional(readOnly=true)
-	@Cacheable(cacheNames="products:products", key="#id")
-	public ProductDTO findProductById(Long id){
-		return productRepository.findByIdAndActiveTrue(id)
-			.map(productMapper::toDto)
-			.orElseThrow(() -> new ProductNotFoundException(id));
-	}
+    @Transactional(readOnly = true)
+    @Cacheable(cacheNames = "products:products", key = "#id")
+    public ProductDTO findProductById(Long id) {
 
-	@CachePut(cacheNames="products:products", key="#id")
-	public ProductDTO updateProduct(Long id, ProductDTO dto){
+        return productRepository.findByIdAndActiveTrue(id)
+            .map(productMapper::toDto)
+            .orElseThrow(() -> new ProductNotFoundException(id));
+    }
 
-		validateProductUpdateInfo(id, dto);
+    @CachePut(cacheNames = "products:products", key = "#id")
+    public ProductDTO updateProduct(Long id, ProductDTO dto) {
 
-		return productRepository.findByIdAndActiveTrue(id)
-			.map(product -> {
+        validateProductUpdateInfo(id, dto);
 
-				//check if the code supplied isn't already used in some other product
-				checkCodeConflict(id, dto);
-				productMapper.updateEntity(dto, product);
-				if(dto.getSupplierIds() != null) replaceSuppliers(product, dto.getSupplierIds());
-				if(dto.getCategoryIds() != null) replaceCategories(product, dto.getCategoryIds());
-				return productMapper.toDto(productRepository.save(product));
-			})
-			.orElseThrow(() -> new ProductNotFoundException(id));
-	}
+        return productRepository.findByIdAndActiveTrue(id)
+            .map(product -> {
 
-	@CachePut(cacheNames="products:products", key="#id")
-	public ProductDTO updateOneFieldOfProduct(Long id, ProductDTO dto){
+                checkCodeConflict(id, dto);
+                productMapper.updateEntity(dto, product);
 
-		if(dto.getActive() != null){
+                if (dto.getSupplierIds() != null) {
+                    replaceSuppliers(product, dto.getSupplierIds());
+                }
 
-			if(dto.getActive() == false || !hasOnlyActiveAttribute(dto)){
-				throw new ProductBadRequestException(
-						"Active can only be set to true by itself through PATCH"
-						);
-			}
+                if (dto.getCategoryIds() != null) {
+                    replaceCategories(product, dto.getCategoryIds());
+                }
 
-			Product product = productRepository.findById(id)
-				.orElseThrow(() -> new ProductNotFoundException(id));
+                return productMapper.toDto(productRepository.save(product));
+            })
+            .orElseThrow(() -> new ProductNotFoundException(id));
+    }
 
-			product.setActive(true);
-			return productMapper.toDto(productRepository.save(product));
-		}
+    @CachePut(cacheNames = "products:products", key = "#id")
+    public ProductDTO updateOneFieldOfProduct(Long id, ProductDTO dto) {
 
-		if(!hasExactlyOneProductUpdateAttribute(dto)){ 
-			throw new ProductBadRequestException("Only one attribute may be patched at a time");
-		}
+        if (dto.getActive() != null) {
 
-		validateForbiddenUpdateFields(dto);
+            if (dto.getActive() == false || !hasOnlyActiveAttribute(dto)) {
+                throw new ProductBadRequestException(
+                    "Active can only be set to true by itself through PATCH"
+                );
+            }
 
-		return productRepository.findByIdAndActiveTrue(id)
-			.map(product -> {
+            Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
 
-				//check if the code supplied isn't already used in some other product
-				checkCodeConflict(id, dto);
-				productMapper.updateEntity(dto, product);
-				if(dto.getSupplierIds() != null) replaceSuppliers(product, dto.getSupplierIds());
-				if(dto.getCategoryIds() != null) replaceCategories(product, dto.getCategoryIds());
-				return productMapper.toDto(productRepository.save(product));
-			})
-			.orElseThrow(() -> new ProductNotFoundException(id));
-	}
+            product.setActive(true);
+            return productMapper.toDto(productRepository.save(product));
+        }
 
-	@CacheEvict(cacheNames="products:produts", key="#id")
-	public void deactivateProduct(Long id){
-		Product product = productRepository.findByIdAndActiveTrue(id)
-			.orElseThrow(() -> new ProductNotFoundException(id));
+        if (!hasExactlyOneProductUpdateAttribute(dto)) {
+            throw new ProductBadRequestException(
+                "Only one attribute may be patched at a time"
+            );
+        }
 
-		log.info("Deactivating product with id {}", id);
-		product.setActive(false);
-		productRepository.save(product);
-	}
+        validateForbiddenUpdateFields(dto);
 
-	@Transactional(readOnly=true)
-	public Page<ProductDTO> listProducts(int page){
-		Pageable pageReq = PageRequest.of(page, pageConfigs.getPageSize());
-		return productRepository.findAllByActiveTrue(pageReq)
-			.map(productMapper::toDto);
-	}
+        return productRepository.findByIdAndActiveTrue(id)
+            .map(product -> {
 
-	@CachePut(cacheNames="products:products", key="#id")
-	public ProductDTO updateProductInventory(Long id, InventoryUpdate dto){
+                checkCodeConflict(id, dto);
+                productMapper.updateEntity(dto, product);
 
-		Product product = productRepository.findByIdAndActiveTrue(id)
-			.orElseThrow(() -> new ProductNotFoundException(id));
+                if (dto.getSupplierIds() != null) {
+                    replaceSuppliers(product, dto.getSupplierIds());
+                }
 
-		validateInventoryUpdate(dto, product);
+                if (dto.getCategoryIds() != null) {
+                    replaceCategories(product, dto.getCategoryIds());
+                }
 
+                return productMapper.toDto(productRepository.save(product));
+            })
+            .orElseThrow(() -> new ProductNotFoundException(id));
+    }
 
-		//If we are here, then the data is valid and it's only a matter of applying changes
-		if(dto.getUnitCost() != null){
-			product.setCost(BigDecimal.valueOf(dto.getUnitCost()));
-		}
+    @CacheEvict(cacheNames = "products:products", key = "#id")
+    public void deactivateProduct(Long id) {
 
-		int stock = product.getStock();
+        Product product = productRepository.findByIdAndActiveTrue(id)
+            .orElseThrow(() -> new ProductNotFoundException(id));
 
-		product.setStock(stock + dto.getStockDelta());
+        log.info("Deactivating product with id {}", id);
 
-		log.info("Updating stock for product with id {}: A stock delta of {} [{} -> {}]", 
-				id, dto.getStockDelta(), stock, product.getStock());
-		 
-		return productMapper.toDto(product);
-	}
+        product.setActive(false);
+        productRepository.save(product);
+    }
 
-	@Transactional(readOnly=true)
-	public Page<ProductDTO> searchProducts(String query, int page){
-		Pageable pageReq = PageRequest.of(page, pageConfigs.getPageSize());
-		return productRepository.searchActiveProducts(query, pageReq)
-			.map(productMapper::toDto);
-	}
+    @Transactional(readOnly = true)
+    public Page<ProductDTO> listProducts(int page) {
 
-	private void validateInventoryUpdate(InventoryUpdate dto, Product product){
+        Pageable pageReq = PageRequest.of(
+            page,
+            pageConfigs.getPageSize()
+        );
 
-		if(dto.getStockDelta() == null || dto.getStockDelta() == 0){
-			throw new ProductBadRequestException("Stock Delta must be provided and can't be zero"); 
-		}
+        return productRepository.findAllByActiveTrue(pageReq)
+            .map(productMapper::toDto);
+    }
 
+    @Transactional(readOnly = true)
+    public Page<ProductDTO> searchProducts(String query, int page) {
 
-		if((dto.getStockDelta() < 0) && dto.getUnitCost() != null){
-			throw new ProductBadRequestException("A new sale can't provide a unit cost");
-		}
+        Pageable pageReq = PageRequest.of(
+            page,
+            pageConfigs.getPageSize()
+        );
 
-		if(dto.getStockDelta() > 0){
-			if(dto.getUnitCost() == null || dto.getUnitCost() <= 0){
-				throw new ProductBadRequestException("Unit cost must be provided and be bigger than zero"); 
-			}
-		}
+        return productRepository.searchActiveProducts(query, pageReq)
+            .map(productMapper::toDto);
+    }
 
-		if(product.getStock() + dto.getStockDelta() < 0){
-			throw new ProductBadRequestException("Can't sell more products than we currently have");
-		}
-	}
+    /*
+     * Single-product inventory update.
+     *
+     * Kept for compatibility with the existing PATCH endpoint.
+     * It delegates to the batch implementation to avoid maintaining
+     * two different inventory-update mechanisms.
+     */
+    public ProductDTO updateProductInventory(Long id, InventoryUpdate dto) {
 
-	private boolean hasExactlyOneProductUpdateAttribute(ProductDTO dto){
-		int count = 0;
+        if (dto == null || dto.getDetails() == null
+                || dto.getDetails().size() != 1) {
 
-		if (dto.getCode() != null)  count++;
-		if (dto.getDescription() != null)  count++;
-		if (dto.getPrice() != null)  count++;
-		if (dto.getMargin() != null)  count++;
-		if (dto.getCategoryIds() != null) count++;
-		if (dto.getSupplierIds() != null) count++;
+            throw new ProductBadRequestException(
+                "Exactly one inventory update must be provided"
+            );
+        }
 
-		return count == 1;
-	}
+        InventoryUpdateLine line = dto.getDetails().get(0);
 
-	private boolean hasOnlyActiveAttribute(ProductDTO dto){
-		return dto.getCode() == null
-			&& dto.getDescription() == null
-			&& dto.getStock() == null
-			&& dto.getPrice() == null
-			&& dto.getCost() == null
-			&& dto.getMargin() == null
-			&& dto.getCategoryIds() == null
-			&& dto.getSupplierIds() == null;
-	}
+        if (line.getProductId() == null || !line.getProductId().equals(id)) {
+            throw new ProductBadRequestException(
+                "The product ID in the request must match the URL"
+            );
+        }
 
-	private boolean hasAtLeastOneProductUpdateAttribute(ProductDTO dto){
-		return dto.getCode() != null
-			|| dto.getDescription() != null
-			|| dto.getPrice() != null
-			|| dto.getMargin() != null
-			|| dto.getCategoryIds() != null
-			|| dto.getSupplierIds() != null;
-	}
+        updateProductInventories(dto);
 
-	private void validateProductUpdateInfo(Long id, ProductDTO dto){
-		//check we have enough info
-		boolean enoughInfo = hasAtLeastOneProductUpdateAttribute(dto);
-		if(!enoughInfo) {
-			throw new ProductBadRequestException(
-					"Should change at least one of Code, Description, Price, Margin, Categories or Suppliers"
-					);
-		}
-		//check for forbidden changes
-		validateForbiddenUpdateFields(dto);
-	}
+        return findProductById(id);
+    }
 
-	private void validateProductCreationInfo(ProductDTO dto){
+    /*
+     * Batch inventory update.
+     *
+     * All product rows are locked, all movements are validated,
+     * and only then are the changes applied.
+     */
+    @CacheEvict(cacheNames = "products:products", allEntries = true)
+    public void updateProductInventories(InventoryUpdate dto) {
 
-		//check we have enough info
-		validateRequiredCreationFields(dto);
+        if (dto == null || dto.getDetails() == null
+                || dto.getDetails().isEmpty()) {
 
-		//check they aren't supplying forbidden fields
-		validateForbiddenCreationFields(dto);
+            throw new ProductBadRequestException(
+                "At least one inventory update must be provided"
+            );
+        }
 
-		//check if the product code already exists
-		boolean exists = productRepository.existsByCode(dto.getCode());
-		if(exists) throw new ProductConflictException(dto.getCode());
+        // Validate request structure and reject duplicate product IDs.
+        Set<Long> productIds = new HashSet<>();
 
-	}
+        for (InventoryUpdateLine line : dto.getDetails()) {
 
-	private void validateRequiredCreationFields(ProductDTO dto){
-		if ( dto.getCode() == null || dto.getDescription() == null || 
-				dto.getPrice() == null || dto.getMargin() == null )
-		{
+            if (line == null || line.getProductId() == null) {
+                throw new ProductBadRequestException(
+                    "Every inventory update must specify a product ID"
+                );
+            }
 
-			throw new ProductBadRequestException( 
-					"Code, Description, Price and Margin MUST be provided"
-					);
+            if (!productIds.add(line.getProductId())) {
+                throw new ProductBadRequestException(
+                    "A product can only appear once in an inventory update: "
+                    + line.getProductId()
+                );
+            }
 
-		}
-	}
+            if (line.getStockDelta() == null || line.getStockDelta() == 0) {
+                throw new ProductBadRequestException(
+                    "Stock delta must be provided and cannot be zero"
+                );
+            }
 
-	private void validateForbiddenUpdateFields(ProductDTO dto){
-		if(dto.getStock() != null || dto.getCost() != null || dto.getActive() != null){
-			throw new ProductBadRequestException(
-					"Stock, Cost or Active status can't be changed in this way"
-					);
-		}
-	}
+            if (line.getUnitCost() != null && line.getUnitCost() <= 0) {
+                throw new ProductBadRequestException(
+                    "Unit cost must be greater than zero"
+                );
+            }
 
-	private void validateForbiddenCreationFields(ProductDTO dto){
-		if(dto.getStock() != null || dto.getCost() != null || dto.getActive() != null){
-			throw new ProductBadRequestException(
-					"Stock, Cost and Active status can't be supplied on creation"
-					);
-		}
-	}
+            if (line.getStockDelta() < 0 && line.getUnitCost() != null) {
+                throw new ProductBadRequestException(
+                    "A stock reduction cannot provide a unit cost"
+                );
+            }
+        }
 
-	private void checkCodeConflict(Long id, ProductDTO dto){
-		if(dto.getCode() == null){
-			return;
-		}
+        // Lock all active products in a consistent order.
+        List<Product> products =
+            productRepository.findActiveByIdsForUpdate(
+                new ArrayList<>(productIds)
+            );
 
-		boolean exists = productRepository.existsByCodeAndIdNot(dto.getCode(), id);
+        if (products.size() != productIds.size()) {
 
-		if(exists){
-			throw new ProductConflictException(dto.getCode());
-		}
-	}
+            Set<Long> foundIds = new HashSet<>();
+            products.forEach(product -> foundIds.add(product.getId()));
 
-	private void addSuppliers(Product product, List<Long> supplierIds){
-		if(supplierIds != null && !supplierIds.isEmpty()){
-			//for each id on the list
-			supplierIds.forEach((supplierId) -> {
-				//fetch the supplier from the database
-				Supplier supplier = supplierRepository.findByIdAndActiveTrue(supplierId)
-					//throw supplier not found exception if Option<empty>
-					.orElseThrow(() -> new SupplierNotFoundException(supplierId));
-			//add supplier to suppliers
-			product.getSuppliers().add(supplier);
-			});
-		}
-	}
+            productIds.removeAll(foundIds);
 
-	private void addCategories(Product product, List<Long> categoryIds){
-		if(categoryIds != null && !categoryIds.isEmpty()){
-			//for each id on the list
-			categoryIds.forEach((categoryId) -> {
-				//fetch the category from the database
-				Category category = categoryRepository.findById(categoryId)
-					//throw category not found exception if Option<empty>
-					.orElseThrow(() -> new CategoryNotFoundException(categoryId));
-			//add category to categories
-			product.getCategories().add(category);
-			});
-		}
-	}
+            throw new ProductBadRequestException(
+                "Products not found or inactive: " + productIds
+            );
+        }
 
-	private void replaceSuppliers(Product product, List<Long> supplierIds){
-		product.getSuppliers().clear();
-		addSuppliers(product, supplierIds);
-	}
+        // Index the locked entities by ID.
+        Map<Long, Product> productsById = new HashMap<>();
 
-	private void replaceCategories(Product product, List<Long> categoryIds){
-		product.getCategories().clear();
-		addCategories(product, categoryIds);
-	}
+        products.forEach(product ->
+            productsById.put(product.getId(), product)
+        );
 
+        // Validate every resulting stock quantity before modifying anything.
+        for (InventoryUpdateLine line : dto.getDetails()) {
+
+            Product product = productsById.get(line.getProductId());
+
+            if (product.getStock() + line.getStockDelta() < 0) {
+                throw new ProductBadRequestException(
+                    "Insufficient stock for product " + product.getId()
+                );
+            }
+        }
+
+        // All movements are valid. Apply the changes.
+        for (InventoryUpdateLine line : dto.getDetails()) {
+
+            Product product = productsById.get(line.getProductId());
+
+            int previousStock = product.getStock();
+            int newStock = previousStock + line.getStockDelta();
+
+            product.setStock(newStock);
+
+            // Only update cost when the caller explicitly provides one.
+            if (line.getUnitCost() != null) {
+                // If unitCost is BigDecimal, use line.getUnitCost() directly.
+                product.setCost(BigDecimal.valueOf(line.getUnitCost()));
+            }
+
+            log.info(
+                "Updating stock for product {}: {} [{} -> {}]",
+                product.getId(),
+                line.getStockDelta(),
+                previousStock,
+                newStock
+            );
+        }
+
+        productRepository.saveAll(products);
+    }
+
+    private void validateProductCreationInfo(ProductDTO dto) {
+
+        validateRequiredCreationFields(dto);
+        validateForbiddenCreationFields(dto);
+
+        boolean exists = productRepository.existsByCode(dto.getCode());
+
+        if (exists) {
+            throw new ProductConflictException(dto.getCode());
+        }
+    }
+
+    private void validateRequiredCreationFields(ProductDTO dto) {
+
+        if (dto.getCode() == null
+                || dto.getDescription() == null
+                || dto.getPrice() == null
+                || dto.getMargin() == null) {
+
+            throw new ProductBadRequestException(
+                "Code, Description, Price and Margin MUST be provided"
+            );
+        }
+    }
+
+    private void validateForbiddenCreationFields(ProductDTO dto) {
+
+        if (dto.getStock() != null
+                || dto.getCost() != null
+                || dto.getActive() != null) {
+
+            throw new ProductBadRequestException(
+                "Stock, Cost and Active status can't be supplied on creation"
+            );
+        }
+    }
+
+    private void validateProductUpdateInfo(Long id, ProductDTO dto) {
+
+        boolean enoughInfo = hasAtLeastOneProductUpdateAttribute(dto);
+
+        if (!enoughInfo) {
+            throw new ProductBadRequestException(
+                "Should change at least one of Code, Description, Price, "
+                + "Margin, Categories or Suppliers"
+            );
+        }
+
+        validateForbiddenUpdateFields(dto);
+    }
+
+    private void validateForbiddenUpdateFields(ProductDTO dto) {
+
+        if (dto.getStock() != null
+                || dto.getCost() != null
+                || dto.getActive() != null) {
+
+            throw new ProductBadRequestException(
+                "Stock, Cost or Active status can't be changed in this way"
+            );
+        }
+    }
+
+    private boolean hasExactlyOneProductUpdateAttribute(ProductDTO dto) {
+
+        int count = 0;
+
+        if (dto.getCode() != null) count++;
+        if (dto.getDescription() != null) count++;
+        if (dto.getPrice() != null) count++;
+        if (dto.getMargin() != null) count++;
+        if (dto.getCategoryIds() != null) count++;
+        if (dto.getSupplierIds() != null) count++;
+
+        return count == 1;
+    }
+
+    private boolean hasOnlyActiveAttribute(ProductDTO dto) {
+
+        return dto.getCode() == null
+            && dto.getDescription() == null
+            && dto.getStock() == null
+            && dto.getPrice() == null
+            && dto.getCost() == null
+            && dto.getMargin() == null
+            && dto.getCategoryIds() == null
+            && dto.getSupplierIds() == null;
+    }
+
+    private boolean hasAtLeastOneProductUpdateAttribute(ProductDTO dto) {
+
+        return dto.getCode() != null
+            || dto.getDescription() != null
+            || dto.getPrice() != null
+            || dto.getMargin() != null
+            || dto.getCategoryIds() != null
+            || dto.getSupplierIds() != null;
+    }
+
+    private void checkCodeConflict(Long id, ProductDTO dto) {
+
+        if (dto.getCode() == null) {
+            return;
+        }
+
+        boolean exists =
+            productRepository.existsByCodeAndIdNot(dto.getCode(), id);
+
+        if (exists) {
+            throw new ProductConflictException(dto.getCode());
+        }
+    }
+
+    private void addSuppliers(Product product, List<Long> supplierIds) {
+
+        if (supplierIds != null && !supplierIds.isEmpty()) {
+
+            supplierIds.forEach(supplierId -> {
+
+                Supplier supplier = supplierRepository
+                    .findByIdAndActiveTrue(supplierId)
+                    .orElseThrow(() ->
+                        new SupplierNotFoundException(supplierId)
+                    );
+
+                product.getSuppliers().add(supplier);
+            });
+        }
+    }
+
+    private void addCategories(Product product, List<Long> categoryIds) {
+
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+
+            categoryIds.forEach(categoryId -> {
+
+                Category category = categoryRepository
+                    .findById(categoryId)
+                    .orElseThrow(() ->
+                        new CategoryNotFoundException(categoryId)
+                    );
+
+                product.getCategories().add(category);
+            });
+        }
+    }
+
+    private void replaceSuppliers(Product product, List<Long> supplierIds) {
+
+        product.getSuppliers().clear();
+        addSuppliers(product, supplierIds);
+    }
+
+    private void replaceCategories(Product product, List<Long> categoryIds) {
+
+        product.getCategories().clear();
+        addCategories(product, categoryIds);
+    }
 }
+

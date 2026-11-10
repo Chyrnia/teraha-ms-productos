@@ -151,4 +151,23 @@ public class ProductController {
 		ProductDTO product = productService.updateProductInventory(id, dto);
 		return ResponseEntity.ok(product);
 	}
+
+	@Operation(
+	summary = "Update multiple products' inventories",
+	description = "Applies a batch of stock movements atomically. Used by Purchases and Sales."
+	)
+		@ApiResponses({
+		@ApiResponse(responseCode = "204", description = "Inventory updated successfully"),
+		@ApiResponse(responseCode = "400", description = "Invalid inventory update or insufficient stock"),
+		@ApiResponse(responseCode = "404", description = "One or more products not found")
+		})
+	@PreAuthorize("hasAnyRole('SELLER', 'MANAGER', 'SYSADMIN')")
+	@PostMapping(path = "/inventory", consumes = "application/json")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void postProductInventories(@RequestBody InventoryUpdate dto) {
+
+		log.info("Received a POST request at /products/inventory");
+
+		productService.updateProductInventories(dto);
+	}
 }
