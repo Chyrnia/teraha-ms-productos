@@ -301,12 +301,19 @@ public class ProductService {
 
             Product product = productsById.get(line.getProductId());
 
-            if (product.getStock() + line.getStockDelta() < 0) {
-                throw new ProductBadRequestException(
-                    "Insufficient stock for product " + product.getId()
-                );
-            }
-        }
+			if (product.getStock() + line.getStockDelta() < 0) {
+				throw new ProductBadRequestException(
+						String.format(
+							"Insufficient stock for product '%s' (code: %s). "
+							+ "Requested: %d, available: %d.",
+							product.getDescription(),
+							product.getCode(),
+							Math.negateExact(line.getStockDelta()),
+							product.getStock()
+							)
+						);
+			}
+		}
 
         // All movements are valid. Apply the changes.
         for (InventoryUpdateLine line : dto.getDetails()) {
